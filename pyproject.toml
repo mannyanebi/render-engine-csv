@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "render_engine_csv"
+version = "2023.1.0"
+description = "CSV Parser and Collection for Render Engine"
+readme = "README.md"
+
+dependencies = [
+    "render-engine >= 2022.12.7a3",
+    "python-slugify"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[project.urls]
+homepage = "https://github.com/mannyanebi/render-engine-csv/"
+repository = "https://github.com/mannyanebi/render-engine-csv/"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
