@@ -1,3 +1,5 @@
 {
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.typeCheckingMode": "basic",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1200
 }

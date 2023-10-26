@@ -1,5 +1,5 @@
 import csv
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Type
 from render_engine.parsers.base_parsers import BasePageParser
 import enum
 
@@ -7,70 +7,56 @@ class Direction(enum.Enum):
     LESS_THAN = 1
     GREATER_THAN = 2
 
-class CSVPageParser(BasePageParser):
+
+
+Page = Type[Any]
+
+class CSVPageFileParser(BasePageParser):
     """
-    Parser for CSV content.
+    Parses a CSV file into page data.
     """
 
-    def __init__(self, config: dict):
-        """
-        Initialize the CSVPageParser with a configuration dictionary.
-        :param config: A dictionary specifying how to parse rows and columns.
-        """
-        super().__init__()
-        self.config = config
-
-    def parse_row(self, row: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-        """
-        Parse a row of CSV data according to the provided configuration.
-        :param row: A dictionary representing a CSV row with column names as keys.
-        :return: A tuple containing attributes (dictionary) and content (string).
-        """
-        content_column = self.config.get("content_column")
-        if content_column and content_column in row:
-            content = row[content_column]
-            row.pop(content_column)
-        else:
-            content = ""
-
-        # You can add more customization logic here based on the configuration
-
-        return row, content
-
-    def read_csv(self, file_path: str) -> List[Dict[str, Any]]:
+    @staticmethod
+    def parse_content_path(content_path: str, page: Page | None = None) -> Tuple[List[Dict[str, Any]], str]:
         """
         Read a CSV file and return a list of dictionaries.
         Each dictionary represents a row with column names as keys.
         :param file_path: The path to the CSV file.
-        :return: A list of dictionaries representing the CSV data.
+        :param page: The Page object associated with the content.
+        :return: A tuple containing the list of dictionaries representing the CSV data and an empty string.
         """
         data = []
-        with open(file_path, newline='') as csvfile:
+        extras = getattr(page, "parser_extras", [])
+        with open(content_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                parsed_row, content = self.parse_row(row)
-                data.append(parsed_row)
-        return data
+                data.append(row)
 
-    def filter_by(self, field_name: str, field_value: str, direction: Direction):
+        # Apply filter_by to exclude specific columns based on parser_extras
+        filtered_data = CSVPageFileParser.filter_by(data, extras)
+        return filtered_data, ""
+    
+
+    @staticmethod
+    def filter_by(data: List[Dict[str, Any]], extras: List[str]) -> List[Dict[str, Any]]:
         """
-        Filter CSV data based on a given field, value, and direction.
-        :param field_name: The name of the field to filter.
-        :param field_value: The value to compare.
-        :param direction: The filter direction (Direction.LESS_THAN or Direction.GREATER_THAN).
+        Filter the CSV data by excluding specific columns based on the extras provided.
+        :param data: The list of dictionaries representing the CSV data.
+        :param extras: A dictionary containing the names of columns to exclude.
+        :return: The filtered list of dictionaries.
         """
-        data = self.read_csv(self.content_path)
+        if not extras:
+            return data
+
+        # Create a set of column names to exclude
+        exclude_columns = set(extras)
+
+        # Filter the data by excluding the specified columns
         filtered_data = []
-
         for row in data:
-            if direction == Direction.LESS_THAN:
-                if row.get(field_name) is not None and row[field_name] < field_value:
-                    filtered_data.append(row)
-            elif direction == Direction.GREATER_THAN:
-                if row.get(field_name) is not None and row[field_name] > field_value:
-                    filtered_data.append(row)
-            else:
-                # Handle other cases or simply pass
-                pass
+            filtered_row = {col: val for col, val in row.items() if col not in exclude_columns}
+            filtered_data.append(filtered_row)
 
         return filtered_data
+
+    
