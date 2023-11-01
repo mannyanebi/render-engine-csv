@@ -1,13 +1,7 @@
 import csv
 from typing import List, Dict, Any, Tuple, Type
 from render_engine.parsers.base_parsers import BasePageParser
-import enum
-
-class Direction(enum.Enum):
-    LESS_THAN = 1
-    GREATER_THAN = 2
-
-
+from .csv_filters import Direction  # Import the Direction enum
 
 Page = Type[Any]
 
@@ -26,37 +20,72 @@ class CSVPageFileParser(BasePageParser):
         :return: A tuple containing the list of dictionaries representing the CSV data and an empty string.
         """
         data = []
-        extras = getattr(page, "parser_extras", [])
+        extras = getattr(page, "parser_extras", {})
+
+        # Extract column exclusion and filtering options from parser_extras
+        exclude_columns = extras.get("exclude_columns", [])
+        filter_options = extras.get("filter_by", [])
+
         with open(content_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 data.append(row)
 
-        # Apply filter_by to exclude specific columns based on parser_extras
-        filtered_data = CSVPageFileParser.filter_by(data, extras)
+        # Apply exclude_columns to exclude specific columns
+        filtered_data = CSVPageFileParser.exclude_columns(data, exclude_columns)
+
+        # Apply filter_by to filter data based on provided filtering options
+        filtered_data = CSVPageFileParser.filter_by(filtered_data, filter_options)
+
         return filtered_data, ""
-    
 
     @staticmethod
-    def filter_by(data: List[Dict[str, Any]], extras: List[str]) -> List[Dict[str, Any]]:
+    def exclude_columns(data: List[Dict[str, Any]], exclude_columns: List[str]) -> List[Dict[str, Any]]:
         """
-        Filter the CSV data by excluding specific columns based on the extras provided.
+        Exclude specific columns from the CSV data.
         :param data: The list of dictionaries representing the CSV data.
-        :param extras: A dictionary containing the names of columns to exclude.
+        :param exclude_columns: A list of column names to exclude.
         :return: The filtered list of dictionaries.
         """
-        if not extras:
+        if not exclude_columns:
             return data
 
         # Create a set of column names to exclude
-        exclude_columns = set(extras)
+        exclude_columns_set = set(exclude_columns)
 
         # Filter the data by excluding the specified columns
         filtered_data = []
         for row in data:
-            filtered_row = {col: val for col, val in row.items() if col not in exclude_columns}
+            filtered_row = {col: val for col, val in row.items() if col not in exclude_columns_set}
             filtered_data.append(filtered_row)
 
         return filtered_data
 
-    
+    @staticmethod
+    def filter_by(data: List[Dict[str, Any]], filter_options: List[Tuple[str, Direction, Any]]) -> List[Dict[str, Any]]:
+        """
+        Filter the CSV data based on filtering options.
+        :param data: The list of dictionaries representing the CSV data.
+        :param filter_options: A list of filtering options as tuples (column, direction, value).
+        :return: The filtered list of dictionaries.
+        """
+        if not filter_options:
+            return data
+
+        filtered_data = []
+        for row in data:
+            include_row = True
+            for column, direction, value in filter_options:
+                if direction == Direction.LESS_THAN:
+                    if int(row.get(column, 0)) >= value:
+                        include_row = False
+                        break
+                elif direction == Direction.GREATER_THAN:
+                    if int(row.get(column, 0)) <= value:
+                        include_row = False
+                        break
+
+            if include_row:
+                filtered_data.append(row)
+
+        return filtered_data
